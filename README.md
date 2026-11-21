@@ -16,7 +16,7 @@ The hackathon platform guide (Renku sessions, git workflow) is in [RENKU_GETTING
 | **Current best model** | Ridge + gradient-boosting ensemble on log ratios to day 0, with **volume-shortfall features** for substrate/byproduct and **substrate caps** from the `feed_substrate` controller. |
 | **Cross-validated score** | **8.11 % mean MAPE** (team folds), 8.10 % (stratified folds), **7.95-8.01 % test-weighted** (folds reweighted to the test set's feeding mix). |
 | **Starting point** | Median-trajectory baseline 10.33 %; mechanistic ODE 14.09 %. |
-| **Submission files** | `testing/submission_ensemble_caps_volume_shortfall.csv` (ens-rb v4 alone, CV 8.11; written by `model_playground.ipynb` §5); `testing/submission_split_team_cells_ensrb_chem.csv` (CV 7.71) and `testing/submission_blend50_ensrb_team.csv` (CV 7.82), both combined with the team's median ensemble (step 17, scratch script). All generated and checked, **not yet submitted**. CSV files are not in git (`*.csv` in `.gitignore`), so they exist only where they were generated. |
+| **Submission files** | `testing/submission_ensemble_caps_volume_shortfall.csv` (ens-rb v4 alone, CV 8.11; written by `model_playground.ipynb` §5); `testing/submission_split_team_cells_ensrb_chem.csv` (CV 7.71) and `testing/submission_blend50_ensrb_team.csv` (CV 7.82), both combined with the team's median ensemble (step 17, built by `testing/build_combined_submissions.py`). All generated and checked, **not yet submitted**. CSV files are not in git (`*.csv` in `.gitignore`), so they exist only where they were generated. |
 | **Reference** | Another team's leaderboard score: 7.96 % (vcd 7.64, tcd 7.60, substrate 8.18, byproduct 8.44). |
 
 ---
@@ -34,6 +34,8 @@ The hackathon platform guide (Renku sessions, git workflow) is in [RENKU_GETTING
 ├── testing/
 │   ├── data_overview.ipynb      ← exploratory analysis (sections 1-9)
 │   ├── model_playground.ipynb   ← validation harness + every model + submission writer
+│   ├── build_combined_submissions.py   ← builds the two step-17 submissions (ens-rb v4 + team median ensemble)
+│   ├── team_median_ensemble_test.json  ← team median ensemble test predictions, extracted from the team results page
 │   └── submission_*.csv         ← NOT in git (*.csv in .gitignore); generated submissions, see TL;DR and step 17
 ├── src/main.py                  ← empty placeholder (all code currently lives in the notebooks)
 └── init.d/                      ← Renku session init script (AI credentials)
@@ -316,7 +318,10 @@ Scores are mean MAPE on the team folds unless stated. ✅ = adopted, ❌ = rejec
   which doesn't name batches.
 
 ### Step 17: Combining with the team's median ensemble ✅ (candidates)
-*Scratch script, not in the notebooks. Team predictions taken from the team results page (`data.json`), same five folds.*
+*CV comparison: scratch script, not in the notebooks; team predictions from the team results page (`data.json`), same five folds.
+Submission files: `testing/build_combined_submissions.py` (run from `testing/` after `model_playground.ipynb` §5; it reads the
+team's test predictions from `team_median_ensemble_test.json`, and `--refresh-team <data.json>` re-extracts them if the team
+model changes).*
 
 - **Finding:** the team's newer median ensemble (ODE S5 + 5 nearest batches + GP) scores **8.32 ± 0.31**, not the 8.56 of its
   older version. Against ens-rb v4 (8.11 ± 0.63) that is a tie under the team's ~0.4 rule. But the two are good at different
@@ -334,7 +339,7 @@ Scores are mean MAPE on the team folds unless stated. ✅ = adopted, ❌ = rejec
 
 - **Caveats:** the per-variable choice was made after seeing per-variable scores (2 options per variable group, so mild
   selection). The team's test predictions are assumed to come from models fitted on all 49 training batches.
-- **Files (local only, CSVs are not in git):** `submission_split_team_cells_ensrb_chem.csv` (per-variable choice) and `submission_blend50_ensrb_team.csv`
+- **Files (local only, CSVs are not in git; rebuild with `python build_combined_submissions.py`):** `submission_split_team_cells_ensrb_chem.csv` (per-variable choice) and `submission_blend50_ensrb_team.csv`
   (50/50 blend, substrate caps re-applied: 3 values). Both pass the template checks.
 
 ### Step 18: `feed_c` timing as a byproduct signal ❌
