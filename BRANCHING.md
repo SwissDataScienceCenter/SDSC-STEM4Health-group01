@@ -7,6 +7,7 @@
 | `main` | Submission-ready. Merged from `dev` only. |
 | `dev` | Integration. All work lands here via PR. |
 | `dev_<name>` | Your working branch, e.g. `dev_crispin`. |
+| `<name>_<topic>` | Optional, for parallel work, e.g. `crispin_mape-splits`. Branch from `dev`, PR into `dev`, delete after merge. |
 
 ```bash
 git switch dev_<name>
