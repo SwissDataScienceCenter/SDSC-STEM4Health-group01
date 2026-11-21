@@ -6,13 +6,14 @@
 |---|---|
 | `main` | Submission-ready. Merged from `dev` only. |
 | `dev` | Integration. All work lands here via PR. |
-| `<name>/<topic>` | One piece of work, e.g. `crispin/mape-splits`. Lives hours, not days. |
+| `dev_<name>` | Your working branch, e.g. `dev_crispin`. |
 
 ```bash
-git switch dev && git pull
-git switch -c <name>/<topic>
-git push -u origin <name>/<topic>
-gh pr create --base dev
+git switch dev_<name>
+git pull origin dev        # stay in sync with dev
+# work and commit
+git push
+gh pr create --base dev --head dev_<name>
 ```
 
 ## Pull requests
@@ -26,7 +27,7 @@ gh pr create --base dev
 
 - `dev`: one approval from a teammate. `main`: two.
 - Reviewer checks: scores come from `src/evaluate.py`, MAPE does not get worse, no data or credentials, notebook outputs cleared.
-- Review within 30 minutes. The author merges with squash and deletes the branch.
+- Review within 30 minutes. The author merges with a merge commit, not squash, so `dev_<name>` stays in sync with `dev`.
 
 ## Rules
 
