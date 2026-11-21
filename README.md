@@ -12,12 +12,13 @@ The hackathon platform guide (Renku sessions, git workflow) is in [RENKU_GETTING
 | | |
 |---|---|
 | **Task** | For 12 test bioreactor batches, predict `vcd`, `tcd`, `substrate`, `byproduct` at days 1-13, given only the day-0 sample, the feed events and the recorded volume. |
-| **Metric** | MAPE per variable over all 156 predicted points, then the plain mean of the 4 (lower is better). Submissions are not limited. |
+| **Metric** | MAPE per variable over all 156 predicted points, then the plain mean of the 4 (lower is better). Submissions are not capped, but **on tied scores the team with the fewest submissions wins**. |
+| **Leaderboard (Team 01)** | **1 submission**: the team's traj-ens-v3 forecast, **7.736 % mean MAPE** (vcd 6.975, tcd 6.802, substrate 8.615, byproduct 8.551), **rank 3** on 2026-11-21. See step 20. |
 | **Current best model** | Ridge + gradient-boosting ensemble on log ratios to day 0, with **volume-shortfall features** for substrate/byproduct and **substrate caps** from the `feed_substrate` controller. |
 | **Cross-validated score** | **8.11 % mean MAPE** (team folds), 8.10 % (stratified folds), **7.95-8.01 % test-weighted** (folds reweighted to the test set's feeding mix). |
 | **Starting point** | Median-trajectory baseline 10.33 %; mechanistic ODE 14.09 %. |
-| **Submission files** | `testing/submission_ensemble_caps_volume_shortfall.csv` (ens-rb v4 alone, CV 8.11; written by `model_playground.ipynb` §5); `testing/submission_split_team_cells_ensrb_chem.csv` (CV 7.71) and `testing/submission_blend50_ensrb_team.csv` (CV 7.82), both combined with the team's median ensemble (step 17, built by `testing/build_combined_submissions.py`). All generated and checked, **not yet submitted**. CSV files are not in git (`*.csv` in `.gitignore`), so they exist only where they were generated. |
-| **Reference** | Another team's leaderboard score: 7.96 % (vcd 7.64, tcd 7.60, substrate 8.18, byproduct 8.44). |
+| **Submission files** | `testing/submission_ensemble_caps_volume_shortfall.csv` (ens-rb v4 alone, CV 8.11; written by `model_playground.ipynb` §5); `testing/submission_split_team_cells_ensrb_chem.csv` (CV 7.71) and `testing/submission_blend50_ensrb_team.csv` (CV 7.82), both combined with the team's median ensemble (step 17, built by `testing/build_combined_submissions.py`). All generated and checked, **not submitted**. CSV files are not in git (`*.csv` in `.gitignore`), so they exist only where they were generated. The submitted traj-ens-v3 forecast is in `submissions/` on `main`. |
+| **Reference** | Leaderboard top on 2026-11-21: Team 04 7.142 % (vcd 7.151, tcd 6.903, substrate 7.546, byproduct 6.969); Team 15 7.343 % (6.617, 6.515, 7.949, 8.292). |
 
 ---
 
@@ -396,6 +397,33 @@ model changes).*
 - **Conclusion:** the volume effects are real but far too small and too uniform to explain the byproduct error. The
   measured volume already carries the dilution, and the cumulative shortfall features already carry the base signal.
 
+### Step 20: First leaderboard submission 🔎
+- **What:** the team's traj-ens-v3 forecast (`submissions/traj-ens-v3_forecast.csv` on `main`; its model is documented by
+  its author). Before submitting, it was checked against `bioreaction_template.csv`: identical columns, 156 rows in the
+  template's `batch_id`/`elapsed_time` order, no gaps, all positive, TCD ≥ VCD, and all 60 constrained substrate values
+  consistent with the `feed_substrate` controller rule. It differs from our split file (step 17) by a median 2.5-3 % per point.
+- **How:** one `POST /api/v1/submit` to the leaderboard API as `Team 01` on 2026-11-21. This is Team 01's only attempt so far.
+- **Result and leaderboard right after:**
+
+| Rank | Team | attempts | vcd | tcd | substrate | byproduct | mean |
+|---|---|---|---|---|---|---|---|
+| 1 | Team 04 | 2 | 7.151 | 6.903 | **7.546** | **6.969** | **7.142** |
+| 2 | Team 15 | 2 | **6.617** | **6.515** | 7.949 | 8.292 | 7.343 |
+| **3** | **Team 01** | **1** | 6.975 | 6.802 | 8.615 | 8.551 | **7.736** |
+| 4 | Team 23 | 9 | 7.269 | 7.144 | 8.346 | 9.282 | 8.010 |
+| 5 | Team 18 | 6 | 7.193 | 6.889 | 8.310 | 9.707 | 8.025 |
+| 6 | Team 10 | 17 | 7.665 | 7.616 | 8.417 | 8.777 | 8.119 |
+
+  (A "TEMPLATE" entry with 18 attempts and 9.517 also appears: teams running the example code without renaming it.)
+- **Reading:**
+  - The score agrees with cross-validation: 7.736 on the leaderboard vs 7.70 (pooled CV) for our split file, which is
+    within 3 % of this forecast.
+  - VCD/TCD are competitive: better than Team 04, about 0.3 behind Team 15.
+  - The gap to the top two is in the chemistry: substrate 0.7-1.1 and byproduct up to 1.6 (vs Team 04) behind. That
+    matches where cross-validation puts our largest errors (steps 15, 18, 19).
+- **Rule:** the fewest submissions win ties, so new candidates are chosen by cross-validation and submitted only with the
+  team's explicit approval.
+
 ### Score progression
 
 | Step | Model | Mean MAPE (team folds) | Δ |
@@ -456,8 +484,9 @@ with the lowest mean MAPE in `RESULTS`. Wrap any model with `SubstrateCaps(base=
   training fold.
 - Compare models on the same folds, and treat CV differences under ~0.1 as noise.
 - The leaderboard scores 12 batches: expect ±0.7 around the cross-validated estimate. The test-weighted score is the closest estimate.
-- Submissions are not limited, but each leaderboard reading is noisy (±0.7 on 12 batches). Choose between candidates
-  with cross-validation and use the leaderboard as a check, not as the selector for differences below ~0.7.
+- Submissions are not capped, but on tied scores **the team with the fewest submissions wins**, and each leaderboard
+  reading is noisy (±0.7 on 12 batches). Choose candidates with cross-validation, never by "submit and see", and submit
+  only with the team's explicit approval. Team 01 has 1 attempt so far (step 20).
 - Feed columns are volumes. The `feed_substrate` controller and the volume shortfall are the two known sources of information
   about hidden values. Look for more like them before adding model complexity.
 
