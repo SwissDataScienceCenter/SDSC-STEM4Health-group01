@@ -16,7 +16,7 @@ The hackathon platform guide (Renku sessions, git workflow) is in [RENKU_GETTING
 | **Current best model** | Ridge + gradient-boosting ensemble on log ratios to day 0, with **volume-shortfall features** for substrate/byproduct and **substrate caps** from the `feed_substrate` controller. |
 | **Cross-validated score** | **8.11 % mean MAPE** (team folds), 8.10 % (stratified folds), **7.95-8.01 % test-weighted** (folds reweighted to the test set's feeding mix). |
 | **Starting point** | Median-trajectory baseline 10.33 %; mechanistic ODE 14.09 %. |
-| **Submission files** | [`testing/submission_ensemble_caps_volume_shortfall.csv`](testing/submission_ensemble_caps_volume_shortfall.csv) (ens-rb v4 alone, CV 8.11); [`testing/submission_split_team_cells_ensrb_chem.csv`](testing/submission_split_team_cells_ensrb_chem.csv) (CV 7.71) and [`testing/submission_blend50_ensrb_team.csv`](testing/submission_blend50_ensrb_team.csv) (CV 7.82), both combined with the team's median ensemble (step 17). All generated and checked, **not yet submitted**. |
+| **Submission files** | `testing/submission_ensemble_caps_volume_shortfall.csv` (ens-rb v4 alone, CV 8.11; written by `model_playground.ipynb` §5); `testing/submission_split_team_cells_ensrb_chem.csv` (CV 7.71) and `testing/submission_blend50_ensrb_team.csv` (CV 7.82), both combined with the team's median ensemble (step 17, scratch script). All generated and checked, **not yet submitted**. CSV files are not in git (`*.csv` in `.gitignore`), so they exist only where they were generated. |
 | **Reference** | Another team's leaderboard score: 7.96 % (vcd 7.64, tcd 7.60, substrate 8.18, byproduct 8.44). |
 
 ---
@@ -32,11 +32,9 @@ The hackathon platform guide (Renku sessions, git workflow) is in [RENKU_GETTING
 │   ├── bioreaction_remaining.csv    event log of all 61 batches
 │   └── bioreaction_template.csv     submission template (12 test batches × 13 time points)
 ├── testing/
-│   ├── data_overview.ipynb      ← exploratory analysis (sections 1-8)
+│   ├── data_overview.ipynb      ← exploratory analysis (sections 1-9)
 │   ├── model_playground.ipynb   ← validation harness + every model + submission writer
-│   ├── submission_ensemble_caps_volume_shortfall.csv   ← ens-rb v4 alone
-│   ├── submission_split_team_cells_ensrb_chem.csv      ← team ensemble for VCD/TCD, ens-rb v4 for substrate/byproduct (step 17)
-│   └── submission_blend50_ensrb_team.csv               ← 50/50 geometric blend with the team ensemble (step 17)
+│   └── submission_*.csv         ← NOT in git (*.csv in .gitignore); generated submissions, see TL;DR and step 17
 ├── src/main.py                  ← empty placeholder (all code currently lives in the notebooks)
 └── init.d/                      ← Renku session init script (AI credentials)
 ```
@@ -336,7 +334,7 @@ Scores are mean MAPE on the team folds unless stated. ✅ = adopted, ❌ = rejec
 
 - **Caveats:** the per-variable choice was made after seeing per-variable scores (2 options per variable group, so mild
   selection). The team's test predictions are assumed to come from models fitted on all 49 training batches.
-- **Files:** `submission_split_team_cells_ensrb_chem.csv` (per-variable choice) and `submission_blend50_ensrb_team.csv`
+- **Files (local only, CSVs are not in git):** `submission_split_team_cells_ensrb_chem.csv` (per-variable choice) and `submission_blend50_ensrb_team.csv`
   (50/50 blend, substrate caps re-applied: 3 values). Both pass the template checks.
 
 ### Step 18: `feed_c` timing as a byproduct signal ❌
