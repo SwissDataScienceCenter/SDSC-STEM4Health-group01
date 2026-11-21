@@ -12,11 +12,11 @@ The hackathon platform guide (Renku sessions, git workflow) is in [RENKU_GETTING
 | | |
 |---|---|
 | **Task** | For 12 test bioreactor batches, predict `vcd`, `tcd`, `substrate`, `byproduct` at days 1-13, given only the day-0 sample, the feed events and the recorded volume. |
-| **Metric** | MAPE per variable over all 156 predicted points, then the plain mean of the 4 (lower is better). One submission only. |
+| **Metric** | MAPE per variable over all 156 predicted points, then the plain mean of the 4 (lower is better). Submissions are not limited. |
 | **Current best model** | Ridge + gradient-boosting ensemble on log ratios to day 0, with **volume-shortfall features** for substrate/byproduct and **substrate caps** from the `feed_substrate` controller. |
 | **Cross-validated score** | **8.11 % mean MAPE** (team folds), 8.10 % (stratified folds), **7.95-8.01 % test-weighted** (folds reweighted to the test set's feeding mix). |
 | **Starting point** | Median-trajectory baseline 10.33 %; mechanistic ODE 14.09 %. |
-| **Submission file** | [`testing/submission_ensemble_caps_volume_shortfall.csv`](testing/submission_ensemble_caps_volume_shortfall.csv) (generated, checked, **not yet submitted**) |
+| **Submission files** | [`testing/submission_ensemble_caps_volume_shortfall.csv`](testing/submission_ensemble_caps_volume_shortfall.csv) (ens-rb v4 alone, CV 8.11); [`testing/submission_split_team_cells_ensrb_chem.csv`](testing/submission_split_team_cells_ensrb_chem.csv) (CV 7.71) and [`testing/submission_blend50_ensrb_team.csv`](testing/submission_blend50_ensrb_team.csv) (CV 7.82), both combined with the team's median ensemble (step 17). All generated and checked, **not yet submitted**. |
 | **Reference** | Another team's leaderboard score: 7.96 % (vcd 7.64, tcd 7.60, substrate 8.18, byproduct 8.44). |
 
 ---
@@ -34,7 +34,9 @@ The hackathon platform guide (Renku sessions, git workflow) is in [RENKU_GETTING
 ├── testing/
 │   ├── data_overview.ipynb      ← exploratory analysis (sections 1-8)
 │   ├── model_playground.ipynb   ← validation harness + every model + submission writer
-│   └── submission_ensemble_caps_volume_shortfall.csv   ← current submission candidate
+│   ├── submission_ensemble_caps_volume_shortfall.csv   ← ens-rb v4 alone
+│   ├── submission_split_team_cells_ensrb_chem.csv      ← team ensemble for VCD/TCD, ens-rb v4 for substrate/byproduct (step 17)
+│   └── submission_blend50_ensrb_team.csv               ← 50/50 geometric blend with the team ensemble (step 17)
 ├── src/main.py                  ← empty placeholder (all code currently lives in the notebooks)
 └── init.d/                      ← Renku session init script (AI credentials)
 ```
@@ -44,7 +46,7 @@ Run them from `testing/` with a Python 3 kernel that has the packages in `enviro
 
 | Notebook | Runtime | What it contains |
 |---|---|---|
-| `data_overview.ipynb` | ~1 min | Data structure, train/test split, trajectories, feeds, the feeding-identifier analysis (§5b), clustering (§8) |
+| `data_overview.ipynb` | ~1 min | Data structure, train/test split, trajectories, feeds, the feeding-identifier analysis (§5b), clustering (§8), volume balance (§9) |
 | `model_playground.ipynb` | ~7 min (the ODE takes most of it) | Validation harness (§1), baseline (§2), ODE (§3-3b), data-driven models (§3c-3f), comparisons (§4, §4b), submission (§5) |
 
 ---
@@ -236,7 +238,7 @@ Scores are mean MAPE on the team folds unless stated. ✅ = adopted, ❌ = rejec
 - **Finding:**
   - A smaller shortfall (more volume than the recorded feeds explain) goes with more byproduct on every day from 3 to 13 (r = 0.35-0.60).
   - It also goes with less substrate on days 3-7 (r down to −0.55).
-  - **Possible mechanism:** unrecorded pH titrant. More acid (byproduct) means more base and more volume.
+  - **Mechanism:** most likely unlogged pH titrant (base). Step 14 shows where this volume enters and what it tracks.
 - **Model:** the shortfall on days 1-13 is added as 13 features to the **substrate and byproduct** models only (for VCD/TCD it added noise).
 
 | Score type | vcd | tcd | substrate | byproduct | **mean** |
@@ -245,6 +247,151 @@ Scores are mean MAPE on the team folds unless stated. ✅ = adopted, ❌ = rejec
 | Stratified folds, pooled | 7.36 | 7.29 | 8.39 | 9.36 | **8.10** |
 | Team folds, test-weighted | 7.50 | 7.46 | 8.23 | 8.87 | **8.01** |
 | Stratified folds, test-weighted | 7.37 | 7.30 | 8.06 | 9.07 | **7.95** |
+
+### Step 14: Volume balance: where does the untracked volume come from? 🔎
+*Notebook: `data_overview.ipynb` §9*
+
+- **Question:** is there volume entering the reactor that no feed column records?
+- **Method:** volume is recorded only at the daily samples, so the balance is closed per sampling interval:
+  residual = measured ΔV − all logged feeds in the interval. Sampling and evaporation make it negative; a positive residual
+  is untracked volume.
+- **Finding:**
+  - On every interval except one, the residual is negative in essentially every batch (about −0.016 per day early,
+    −0.05 per day from day 6).
+  - On the interval ending at **day 3 it is positive in all 61 batches**. Above each batch's own early loss rate the
+    addition is ≈ +0.06 on day 3 and ≈ +0.01 on day 4 (84 % of batches), and gone by day 5. Total ≈ 0.07 per batch (≈ 0.7 % of volume).
+  - It tracks byproduct made in the same interval (Spearman ρ = 0.56) and peak byproduct (0.47), not cell density (0.22).
+  - Test batches show the same addition (0.074 vs 0.076).
+- **Interpretation (hypothesis):** base pumped in by pH control while lactate (the presumed byproduct) builds up fastest,
+  and not logged as a feed. It measures **early** acid production; it carries little information after day 5.
+- **Decision:** the cumulative shortfall features (step 13) already contain it. Isolating the addition as separate features
+  (days 3/4/5, total, early and late loss rates) scored 8.20 added to them and 8.21 instead of them, vs 8.11. Not adopted.
+
+### Step 15: Days 11-13 and the lactate hypothesis ❌ (as a predictor), 🔎 (as biology)
+*Scratch experiments, not in the notebooks*
+
+- **Hypothesis (team):** the byproduct is lactate made from the substrate (glucose), and the late glucose feeding
+  (`feed_b` halves at day 10; `feed_substrate` shots at 11.5 and 12.5) drives the large day 11-13 errors.
+- **Where the error is (current best, out-of-fold):** byproduct MAPE 10.0 / 11.8 / **20.8** and substrate **19.7** / 13.4 / 14.6
+  on days 11 / 12 / 13. Days 11-13 hold 36 % of all byproduct and 43 % of all substrate error. Median signed error ≈ 0: scatter, not bias.
+- **The lactate reading is supported:** on days 1-2, byproduct made per unit substrate consumed is 0.83-0.90 g/g, near
+  the glycolytic maximum of 1. Byproduct is made until day 4 and consumed from day 7 (the lactate shift).
+- **But glucose doesn't drive the late error.** Oracle tests (true hidden values given to the substrate/byproduct models,
+  on purpose, to bound what any feature could achieve):
+
+| Information added | byproduct MAPE d11-13 | byproduct MAPE |
+|---|---|---|
+| none (current best) | 14.2 | 9.02 |
+| true glucose, days 10-13 | 14.4 | 9.09 |
+| true VCD, days 10-13 | 14.4 | 9.02 |
+| true byproduct at day 2 / 4 / 6 / 8 / 10 | 14.5 / 14.0 / 13.7 / 12.2 / **11.1** | 8.69 / 8.17 / 8.30 / 7.94 / **7.64** |
+| allowed late feed features (shot / volume, `feed_b` drop, late titrant increments) | 14.5 | 9.34 (mean 8.20) |
+
+- **Diagnosis:**
+  - The late byproduct error is carried over: day-10 and day 11-13 errors correlate 0.63-0.74.
+  - The level is set during **consumption** (days 6-10), not production: knowing day 2-4 byproduct barely helps.
+  - True glucose explains R² = 0.09 of log(B₁₃ / B₁₀); adding true B₁₀ raises it to 0.29. Late consumption depends on the
+    byproduct level itself (first-order), not on glucose.
+  - No allowed input explains the per-batch consumption rate: in a scan of ~60 candidates (`feed_c` timing, titrant
+    per window, `feed_b` profile), the best |ρ| with the late error was 0.31, about the chance maximum for n = 49.
+- **Two outliers:** Batch29 and Batch34 roughly triple their byproduct between days 12 and 13 (0.57 → 1.71, 0.65 → 1.86);
+  no other batch rises more than 12 %, and neither shows extra titrant volume. Possibly measurement anomalies.
+- **Decision:** the late error is information-limited. Keep the late glucose → lactate coupling for the mechanistic
+  explanation (ODE), not as model features.
+
+### Step 16: Smaller checks ❌, one candidate
+*Scratch experiments, not in the notebooks. All on the team folds, against 8.11.*
+
+| Attempt | Idea | mean | Decision |
+|---|---|---|---|
+| MAPE-optimal shift, per variable / per variable × day | MAPE rewards predicting below the median; learn a factor on the other folds | 8.20 / 8.37 | ❌ factors fit noise |
+| `RidgeCV(alpha_per_target=True)` | late days are noisier, so let each day pick its own α | 8.16 | ❌ |
+| Conditional caps | move a rule-breaking substrate prediction to the typical value on the correct side, not to the threshold | 8.10 | ❌ tie |
+| Damp Batch29/34 day-13 byproduct **in training only** | keep two unexplained jumps from pulling every day-13 prediction up | **8.04** (byproduct 8.72, day 13: 20.8 → 17.2) | candidate, see below |
+
+- **Why the caps help only a little (8.18 without → 8.11 with):** without caps, only 15 of 245 constrained substrate
+  predictions break the controller rule, so the caps can only ever move those 15. The rule is also one-sided (e.g. "below
+  0.967"), so it says nothing about how far below. The large day-11 substrate error sits in batches that already obey the
+  rule. Moving the 15 to a better value (conditional caps) doesn't change that.
+- **The outlier damping** is the only change that helped. It was chosen after looking at the data, and −0.07 is below the
+  ~0.1 noise threshold, so it isn't adopted yet. A principled version is a robust loss (e.g. Huber) for the ridge member,
+  which doesn't name batches.
+
+### Step 17: Combining with the team's median ensemble ✅ (candidates)
+*Scratch script, not in the notebooks. Team predictions taken from the team results page (`data.json`), same five folds.*
+
+- **Finding:** the team's newer median ensemble (ODE S5 + 5 nearest batches + GP) scores **8.32 ± 0.31**, not the 8.56 of its
+  older version. Against ens-rb v4 (8.11 ± 0.63) that is a tie under the team's ~0.4 rule. But the two are good at different
+  things: the team ensemble on cells (VCD 6.61, TCD 6.56 vs 7.41, 7.37), ens-rb v4 on chemistry (substrate 8.59, byproduct 9.02
+  vs 8.89, 11.16).
+
+| Combination (per-fold Score, mean ± SD) | VCD | TCD | substrate | byproduct | Score |
+|---|---|---|---|---|---|
+| ens-rb v4 alone | 7.41 | 7.37 | 8.59 | 9.02 | 8.11 ± 0.63 |
+| team median ensemble alone | 6.61 | 6.56 | 8.89 | 11.16 | 8.32 ± 0.31 |
+| 50/50 geometric blend, all variables | 6.77 | 6.72 | 8.20 | 9.55 | **7.82 ± 0.40** |
+| blend weight chosen on the other 4 folds (picked 0.40-0.50 every time) | | | | | 7.84 ± 0.41 |
+| **per variable: team ensemble for VCD/TCD, ens-rb v4 for substrate/byproduct** | 6.61 | 6.56 | 8.59 | 9.02 | **7.71 ± 0.52** |
+| as above, chemistry 75/25 ens-rb v4/team | 6.61 | 6.56 | 8.29 | 9.12 | 7.66 ± 0.44 (more tuned) |
+
+- **Caveats:** the per-variable choice was made after seeing per-variable scores (2 options per variable group, so mild
+  selection). The team's test predictions are assumed to come from models fitted on all 49 training batches.
+- **Files:** `submission_split_team_cells_ensrb_chem.csv` (per-variable choice) and `submission_blend50_ensrb_team.csv`
+  (50/50 blend, substrate caps re-applied: 3 values). Both pass the template checks.
+
+### Step 18: `feed_c` timing as a byproduct signal ❌
+*Scratch experiments, not in the notebooks. Motivation: the best team's leaderboard byproduct MAPE is 6.97 vs our 9.02 (CV).*
+
+- **Timing structure:**
+  - The 8 large doses are a fixed daily schedule on days 5-12, ~0.8 h after each sample.
+  - The 3-27 small doses come a median 16.6 h after the last sample, spread over the day, with intervals that lengthen
+    within a batch. They are not triggered by the daily sample (unlike `feed_substrate`), so they give no hard bounds.
+    They look like an online controller (pH, foam or similar).
+- **Signal:**
+  - Per interval, dose count doesn't track byproduct made in the same interval (within-day ρ = −0.03).
+  - Per batch, more or earlier small doses go with less byproduct (day 10/13 ρ ≈ −0.3 to −0.44), and ens-rb v4's
+    byproduct error correlates +0.27 to +0.33 with the count. This is not driven by the most-dosed batches.
+- **Tests (team folds, vs 8.11 / byproduct 9.02):**
+  - Compact timing features (log count, first-dose time, counts on days 0-4 and 10-13, median gap days 6-10) for byproduct
+    only: 8.12.
+  - The same features for substrate and byproduct: 8.16.
+  - Two features: 8.12. All 11 timing features: 8.13.
+  - A cross-fitted one-slope correction of the byproduct prediction on log count: byproduct 9.02 → 8.95.
+- **Conclusion:** real but weak information, mostly already used through `feed_c_n_small`. It does not explain the
+  byproduct gap to the best team.
+
+### Step 19: Do unlogged base and evaporation make the byproduct concentration uncertain? ❌
+*Scratch experiments, not in the notebooks.*
+
+- **Hypothesis (team):** unlogged base (in) and evaporation (out) change the volume without a logged feed, so the measured
+  byproduct concentration (lactate mass / volume) shifts in ways the model can't follow.
+- **Size of the effect** (log of measured volume / volume from logged feeds, in % of concentration):
+
+| day | 1 | 3 | 5 | 7 | 9 | 11 | 13 |
+|---|---|---|---|---|---|---|---|
+| mean shift | −0.2 | +0.1 | −0.2 | −1.0 | −1.6 | −2.1 | −2.6 |
+| SD between batches | 0.10 | 0.17 | 0.21 | 0.18 | 0.17 | 0.16 | 0.15 |
+| model byproduct error SD | 4.9 | 7.8 | 11.9 | 12.4 | 11.0 | 13.0 | 33.0 |
+
+- **Reading:**
+  - Evaporation concentrates everything by up to 2.6 % by day 13, but almost identically in every batch (SD ≤ 0.2 %).
+    The day-specific models absorb the shared part, and the batch-to-batch part is 50-200× smaller than the byproduct error.
+  - The model's byproduct error doesn't track the dilution differences on any day (|ρ| ≤ 0.24, mostly ≈ 0).
+  - The late net loss (sampling + evaporation, days 6-13) is −0.051 per interval with 3 % variation between batches. It is
+    unrelated to byproduct (ρ = −0.01) and to the late model error (ρ = −0.01). Sampling and evaporation can't be
+    separated, because interval lengths barely vary.
+- **By-product:** subtracting each batch's own late loss rate gives a cleaner base estimate for days 2-5 (ρ = 0.62 with
+  lactate made on days 1-5, vs 0.44 with the step-14 estimate).
+- **Tests (vs 8.11 / byproduct 9.02 / byproduct days 11-13 14.2):**
+
+| Variant | mean | byproduct | days 11-13 |
+|---|---|---|---|
+| + cleaner base estimate | 8.11 | 8.97 | 14.11 |
+| + base estimate + late loss rate | 8.13 | 8.99 | 14.09 |
+| byproduct modelled as mass (B·V), converted back with the measured volume | 8.09 | 8.92 | 13.86 |
+
+- **Conclusion:** the volume effects are real but far too small and too uniform to explain the byproduct error. The
+  measured volume already carries the dilution, and the cumulative shortfall features already carry the base signal.
 
 ### Score progression
 
@@ -306,24 +453,30 @@ with the lowest mean MAPE in `RESULTS`. Wrap any model with `SubstrateCaps(base=
   training fold.
 - Compare models on the same folds, and treat CV differences under ~0.1 as noise.
 - The leaderboard scores 12 batches: expect ±0.7 around the cross-validated estimate. The test-weighted score is the closest estimate.
-- There is **one submission**. Don't submit until the team agrees.
+- Submissions are not limited, but each leaderboard reading is noisy (±0.7 on 12 batches). Choose between candidates
+  with cross-validation and use the leaderboard as a check, not as the selector for differences below ~0.7.
 - Feed columns are volumes. The `feed_substrate` controller and the volume shortfall are the two known sources of information
   about hidden values. Look for more like them before adding model complexity.
 
 **Reproducibility notes**
 
-- Every number in steps 1-8, 10 and 13 is reproduced by running the notebooks.
-- Step 9 (leaderboard noise simulation), steps 11-12, the GP kernel comparison table (§3d) and the per-cluster CV table
-  (`data_overview` §8) came from one-off scratch scripts that are **not in the repo**. They're recorded here and in the notebook text.
+- Every number in steps 1-8, 10, 13 and the step-14 balance is reproduced by running the notebooks.
+- Step 9 (leaderboard noise simulation), steps 11-12, the step-14 feature test, steps 15-16, the GP kernel comparison table (§3d)
+  and the per-cluster CV table (`data_overview` §8) came from one-off scratch scripts that are **not in the repo**. They're
+  recorded here and in the notebook text. The step 14-16 scripts executed the `model_playground` code cells unchanged, so they
+  share its folds, features and models.
+- To re-execute a notebook from the command line: `jupyter nbconvert --to notebook --execute --inplace testing/<name>.ipynb`
+  (needs `nbconvert`, which comes with `jupyterlab` from `environment.yml`).
 
 ---
 
 ## 7. Open questions and next steps
 
-1. **Late byproduct (days 11-13)** remains the largest single error. Before the shortfall features, byproduct MAPE was 22 % on day 13
-   alone. Per-day errors for the current model are in `model_playground.ipynb` §4.
-2. **Use the volume shortfall mechanistically:** if it is unrecorded titrant, it measures acid production directly. An ODE byproduct
-   equation driven by it could make the hybrid ODE + regression approach work.
+1. **Late byproduct (days 11-13)** remains the largest single error (day 13: 20.8 %). Step 15 shows it is information-limited:
+   it comes from each batch's byproduct consumption rate on days 6-10, which no allowed input explains, and not from the
+   glucose feeding. Remaining lever: robustness to the two day-13 outliers (step 16, Huber loss).
+2. **Use the volume shortfall mechanistically:** step 14 shows the untracked volume enters on days 2-4 only, so it measures
+   early acid (lactate) production. An ODE byproduct production term driven by it is possible, but it won't inform the late phase.
 3. **The "early dose · LL" group** has 4 training batches but 3 of 12 test batches (Batch6, 35, 54). Batch6 and Batch54 are also the
    test batches farthest from any training batch. Expect the largest errors there.
 4. **Not tried:** predicting TCD + viability instead of VCD (makes TCD ≥ VCD hold by construction); repeated CV for tighter estimates.
