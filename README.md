@@ -75,6 +75,17 @@ The scenario use is not validated: the data contain no deliberate feed changes.
 Branch `adish_greybox` holds the earlier grey-box approach (the ODE with per-batch rates set from a data-driven
 forecast), kept as a demonstration.
 
+## Grey-box approach (this branch)
+
+An earlier approach, kept as a demonstration: the mechanistic ODE with eleven per-batch rates set so that its
+trajectory matches a data-driven forecast (`src/greybox.py`, write-up in `docs/GREYBOX_MODEL.md`). Held-out mean
+MAPE on the team folds: 9.46 with shared rates, 7.97 for the grey box, 5.88 with rates fitted to the batch's own
+measurements (`results/greybox_scores_evap0.csv`). It reads the data from `data/bioreaction_remaining.csv`.
+
+```bash
+python src/greybox.py            # cross-validation on the team folds
+```
+
 ## Run
 
 ```bash
