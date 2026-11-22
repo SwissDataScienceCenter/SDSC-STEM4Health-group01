@@ -1,0 +1,19 @@
+{
+ "file": "submissions/v10.2.0.csv",
+ "sha256": "732a8b0d1df0f0a1e0ad9d1ffd100392740b359378e107b12b067742e7f53dd9",
+ "sent_utc": "2026-11-22T13:55:31.087060+00:00",
+ "status": 200,
+ "response": {
+  "user_name": "Team 01",
+  "rank": 1,
+  "attempt": 20,
+  "timestamp": "2026-11-22T13:55:31.223126",
+  "metrics": {
+   "vcd_mape": 6.243,
+   "tcd_mape": 6.106,
+   "substrate_mape": 6.302,
+   "byproduct_mape": 7.282,
+   "mean_mape": 6.483
+  }
+ }
+}

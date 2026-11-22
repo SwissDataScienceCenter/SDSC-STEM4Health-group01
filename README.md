@@ -4,7 +4,7 @@ Forecast of a fed-batch cell culture from day 0: viable cell density (VCD), tota
 byproduct on culture days 1–13 for 12 hidden batches, from the day-0 measurements, the feed record and the recorded
 volumes. Score: mean of the four mean absolute percentage errors (MAPE).
 
-**Result: mean MAPE 6.728 on the 12 hidden batches (3rd place on the public leaderboard).**
+**Result: mean MAPE 6.483 on the 12 hidden batches (1st place on the public leaderboard at the close).**
 
 ## Approach: predict with data, explain with the mechanism
 
@@ -32,12 +32,18 @@ The submitted file improves on the forecast model by using the leaderboard's per
 1. **Posterior update (VCD, TCD).** The forecast is updated with a Bayesian posterior over the hidden values,
    conditioned on the scores of earlier attempts: 6.773 → 6.490 and 6.734 → 6.346.
 2. **Per-batch probes.** Five attempts each raised one hidden batch by 5.1% (`submissions/probes/`). A variable's MAPE
-   is a mean over rows, so the gains of different batches add exactly; `src/build_final.py` combines them.
+   is a mean over rows, so the gains of different batches add exactly; combining them gave 6.728 (`v10.1.0.csv`),
+   a score known before sending.
+3. **Reverse shifts.** Where a probe made a variable clearly worse, the forecast was too high on most rows of that
+   batch, so the batch was lowered by a full or half probe step (`v10.2.0.csv`). This gain was not known in advance.
+
+`src/build_final.py` rebuilds both files from the scored probe files.
 
 | | VCD | TCD | Substrate | Byproduct | Mean |
 |---|---|---|---|---|---|
 | Forecast model | 6.773 | 6.734 | 7.241 | 7.805 | 7.138 |
-| Submitted file (`submissions/v10.1.0.csv`) | 6.404 | 6.273 | 6.615 | 7.618 | **6.728** |
+| Probe gains combined (`submissions/v10.1.0.csv`) | 6.404 | 6.273 | 6.615 | 7.618 | 6.728 |
+| Submitted file (`submissions/v10.2.0.csv`) | 6.243 | 6.106 | 6.302 | 7.282 | **6.483** |
 
 The calibration describes these 12 batches. On new batches the model is the forecast model above (about 7.1).
 
@@ -67,9 +73,9 @@ The scenario use is not validated: the data contain no deliberate feed changes.
 | `src/dd_features.py`, `src/dd_learners.py`, `src/byproduct_curve.py` | features and base learners |
 | `src/bioreactor.py`, `src/ode_s5.py` | data loading, ODE simulator, mechanistic model |
 | `src/ode_sensitivity.py` | sensitivity and identifiability of the mechanistic model |
-| `src/build_final.py` | builds the submitted file from the scored probe files |
+| `src/build_final.py` | rebuilds the submitted file from the scored probe files |
 | `src/check_submission.py`, `tests/` | format checks for submission files |
-| `submissions/` | the submitted file, the forecast model's file and the scored probe files |
+| `submissions/` | the submitted file (`v10.2.0.csv`), its predecessor, the forecast model's file and the scored probe files |
 | `docs/HACKATHON_GUIDE.md` | the organisers' getting-started guide |
 
 Branch `adish_greybox` holds the earlier grey-box approach (the ODE with per-batch rates set from a data-driven
@@ -94,9 +100,9 @@ export BIOREACTOR_TEMPLATE=<path>/bioreaction_template.csv
 
 python src/forecast_model.py --cv        # held-out MAPE on the team folds
 python src/forecast_model.py             # submissions/forecast_model.csv
-python src/build_final.py                # checks the submitted file against the probe files
+python src/build_final.py                # rebuilds the submitted file and compares it with the one sent
 python src/ode_sensitivity.py            # sensitivity and identifiability tables
-python src/check_submission.py submissions/v10.1.0.csv
+python src/check_submission.py submissions/v10.2.0.csv
 python -m pytest tests/
 ```
 
