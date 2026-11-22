@@ -1,0 +1,67 @@
+[
+ {
+  "file": "submissions/probes/probe_01_Batch5.csv",
+  "sha256": "30a36ba82d514257caa79c6080239fa86da77ff038f17eeb44ed8eabec52df1e",
+  "sent_utc": "2026-11-22T12:49:14.074038+00:00",
+  "metrics": {
+   "vcd_mape": 6.404,
+   "tcd_mape": 6.273,
+   "substrate_mape": 7.606,
+   "byproduct_mape": 7.896,
+   "mean_mape": 7.045
+  },
+  "attempt": 11
+ },
+ {
+  "file": "submissions/probes/probe_02_Batch6.csv",
+  "sha256": "c8d5851f7b587dc3e8ffe77051ab2ffd63bce4b8943562d3c74c7cdd40f6b978",
+  "sent_utc": "2026-11-22T12:49:35.447086+00:00",
+  "metrics": {
+   "vcd_mape": 6.597,
+   "tcd_mape": 6.462,
+   "substrate_mape": 7.109,
+   "byproduct_mape": 7.618,
+   "mean_mape": 6.947
+  },
+  "attempt": 12
+ },
+ {
+  "file": "submissions/probes/probe_03_Batch12.csv",
+  "sha256": "7070c8be1aad79dc452f3d5d6531634b42c050d1343f8946a0972ff1242719ba",
+  "sent_utc": "2026-11-22T12:49:55.641034+00:00",
+  "metrics": {
+   "vcd_mape": 6.746,
+   "tcd_mape": 6.555,
+   "substrate_mape": 7.327,
+   "byproduct_mape": 8.05,
+   "mean_mape": 7.17
+  },
+  "attempt": 13
+ },
+ {
+  "file": "submissions/probes/probe_04_Batch24.csv",
+  "sha256": "a60dace872b2a5cfef44575219332507cf89ff0d35a44991d750d9ff98a99c90",
+  "sent_utc": "2026-11-22T12:50:15.862287+00:00",
+  "metrics": {
+   "vcd_mape": 6.756,
+   "tcd_mape": 6.612,
+   "substrate_mape": 7.016,
+   "byproduct_mape": 8.19,
+   "mean_mape": 7.143
+  },
+  "attempt": 14
+ },
+ {
+  "file": "submissions/probes/probe_05_Batch32.csv",
+  "sha256": "b8d0e3dd67e8fb1d2ab16b908df1a560af6cacbc72f9bddf7df8cfcb7e661141",
+  "sent_utc": "2026-11-22T12:50:36.100434+00:00",
+  "metrics": {
+   "vcd_mape": 6.852,
+   "tcd_mape": 6.701,
+   "substrate_mape": 6.88,
+   "byproduct_mape": 8.132,
+   "mean_mape": 7.141
+  },
+  "attempt": 15
+ }
+]

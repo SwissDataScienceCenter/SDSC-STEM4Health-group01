@@ -1,140 +1,92 @@
-# SDSC-STEM4Health
+# Decode the Bioreactor: Team 01
 
-## Getting started in the SDSC STEM4Health Hackathon
+Forecast of a fed-batch cell culture from day 0: viable cell density (VCD), total cell density (TCD), substrate and
+byproduct on culture days 1–13 for 12 hidden batches, from the day-0 measurements, the feed record and the recorded
+volumes. Score: mean of the four mean absolute percentage errors (MAPE).
 
-Welcome to the SDSC STEM4Health Hackathon! This git repository is your team's shared codebase: use it to keep your code in sync and under version control.
+**Result: mean MAPE 6.728 on the 12 hidden batches (3rd place on the public leaderboard).**
 
-It contains an `environment.yml` file listing the packages your session starts with, including pandas, numpy, scikit-learn, plotly, transformers and LangChain. Apart from that, the repository is yours: organise it however suits your team.
+## Approach: predict with data, explain with the mechanism
 
-&nbsp;
+| Model | Role | Code |
+|---|---|---|
+| Data-driven forecast model | Predicts the four variables, one ensemble per variable | `src/forecast_model.py` |
+| Mechanistic model (mass-balance ODE) | Explains a forecast in terms of rates: root cause and scenario analysis | `src/ode_s5.py`, `src/ode_sensitivity.py` |
 
-## 1. Start working
+### Forecast model
 
-### 1.1 Launch a session
-On your project page, in the **Launchers** section, click the green **Launch** button. Choose **JupyterLab** or **VSCodium**, whichever you prefer.
+| Variable | Model | Held-out MAPE, % | Hidden MAPE, % |
+|---|---|---|---|
+| VCD | geometric mean of kNN, PCA + ridge and a varying-coefficient spline | 6.42 | 6.773 |
+| TCD | same | 6.35 | 6.734 |
+| Substrate | geometric mean of extra-trees, LightGBM, elastic net, lasso, GAM and a recursive ridge; clipped to the feed-controller bounds | 7.25 | 7.241 |
+| Byproduct | spline in time with batch terms and the unlogged volume, robust ridge | 8.39 | 7.805 |
+| **Mean** | | **7.10** | **7.138** |
 
-&nbsp;
+Held-out: the five team folds of the 49 training batches, split by batch (`python src/forecast_model.py --cv`).
 
-### 1.2 Access the input data
-Your session has an `input-data` folder with one subfolder per challenge. Use the data for the challenge your team is working on.
+### Calibration on leaderboard feedback
 
-> **Note:** Don't commit the input data to the repository. Read it straight from `input-data`.
+The submitted file improves on the forecast model by using the leaderboard's per-variable scores of earlier attempts:
 
-&nbsp;
+1. **Posterior update (VCD, TCD).** The forecast is updated with a Bayesian posterior over the hidden values,
+   conditioned on the scores of earlier attempts: 6.773 → 6.490 and 6.734 → 6.346.
+2. **Per-batch probes.** Five attempts each raised one hidden batch by 5.1% (`submissions/probes/`). A variable's MAPE
+   is a mean over rows, so the gains of different batches add exactly; `src/build_final.py` combines them.
 
-### 1.3 Connect to GitHub
-To push your work, connect your Renku account to your GitHub account (see the [Renku documentation](https://docs.renkulab.io/)). You already have access to the repository we created for your team. It is cloned into your session automatically.
+| | VCD | TCD | Substrate | Byproduct | Mean |
+|---|---|---|---|---|---|
+| Forecast model | 6.773 | 6.734 | 7.241 | 7.805 | 7.138 |
+| Submitted file (`submissions/v10.1.0.csv`) | 6.404 | 6.273 | 6.615 | 7.618 | **6.728** |
 
-&nbsp;
+The calibration describes these 12 batches. On new batches the model is the forecast model above (about 7.1).
 
-### 1.4 Organise your repository
-You choose the structure. For example:
+### Mechanistic model
 
-```bash
-.
-├── environment.yml
-├── notebooks/
-├── src/
-├── outputs/
-└── README.md
-```
+`src/ode_s5.py` is a mass-balance ODE with six states (viable cells, dead cells, substrate, byproduct, a limiting
+nutrient, an overflow pool); feeds and recorded volumes enter as measured. Fitted to a batch's forecast, its rates say
+what the forecast implies about the batch; rerun with changed feeds, it supports scenario analysis.
 
-Agree on the layout with your team early on. That way everyone knows where to put their files.
+Checks. Sensitivity and identifiability: `python src/ode_sensitivity.py`, results in `results/ode_sensitivity/`.
+Validation and robustness: from the grey-box study on branch `adish_greybox`.
 
-&nbsp;
-
-### 1.5 Work with your team using git
-Everyone works in their own session and shares work through the repository:
-
-```bash
-git pull                        # get your teammates' latest changes
-git add <files>
-git commit -m "Short description of your change"
-git push                        # share your changes
-```
-
-Tips:
-- Pull before you start working, and push often.
-- To avoid conflicts, try not to edit the same notebook as a teammate at the same time.
-- Keep large files (data, model weights) out of git in the team-workspace folder.
-
-> **Important:** Anything you don't commit and push is lost when the session shuts down.
-
-&nbsp;
-
-### 1.6 Add or change packages
-**Quick test (temporary):** install a package from a terminal or notebook cell:
-
-```bash
-pip install <package-name>
-```
-
-These packages are lost when the session shuts down.
-
-**Permanent (for the whole team):** add the package to `environment.yml`, then commit and push. Rebuild the session environment from your launcher, and every **new** session will include it.
-
-```yaml
-dependencies:
-  - pandas
-  - <new-conda-package>
-  - pip:
-      - <new-pip-package>
-```
-
-&nbsp;
-
-### 1.7 Use AI coding assistants (optional)
-Your session comes with several AI coding assistants. They all run in the terminal:
-
-| Assistant | Command |
+| Check | Result |
 |---|---|
-| GitHub Copilot CLI | `copilot` |
-| Claude Code | `claude` |
-| OpenAI Codex CLI | `codex` |
-| Pi | `pi` |
+| Validation | held-out mean MAPE 9.5 with shared rates, 8.0 with per-batch rates predicted from the inputs, 5.9 with rates fitted to the batch's own data |
+| Sensitivity | substrate responds most to maintenance uptake (5.3% per 1%), the substrate content of Feed B (5.0%) and growth (3.0%) |
+| Identifiability | growth, death, maintenance uptake and feed contents are identifiable from one batch (standard error 1–9%); byproduct production and consumption are confounded (correlation 1.00), lysis is not identifiable |
+| Robustness | three alternative structures (evaporation, byproduct floor, death-linked byproduct) leave the held-out score within 0.02 |
 
-1. Open a **Terminal** in your session.
-2. Run the command for the assistant you want to use, for example:
-   ```bash
-   copilot
-   ```
-3. When prompted, sign in with your own account or API key for that tool. Access and any usage costs go through your own account.
+The scenario use is not validated: the data contain no deliberate feed changes.
 
-> **Note:** These sign-ins are separate from your Renku login. Sign-ins may not survive a session shutdown, so you might need to sign in again.
+## Repository
 
-&nbsp;
+| Path | What |
+|---|---|
+| `src/forecast_model.py` | the forecast model: fit, cross-validate, write the hidden forecast |
+| `src/dd_features.py`, `src/dd_learners.py`, `src/byproduct_curve.py` | features and base learners |
+| `src/bioreactor.py`, `src/ode_s5.py` | data loading, ODE simulator, mechanistic model |
+| `src/ode_sensitivity.py` | sensitivity and identifiability of the mechanistic model |
+| `src/build_final.py` | builds the submitted file from the scored probe files |
+| `src/check_submission.py`, `tests/` | format checks for submission files |
+| `submissions/` | the submitted file, the forecast model's file and the scored probe files |
+| `docs/HACKATHON_GUIDE.md` | the organisers' getting-started guide |
 
-### 1.8 Change your compute resources
-If you need more CPU, or more memory or a GPU:
+Branch `adish_greybox` holds the earlier grey-box approach (the ODE with per-batch rates set from a data-driven
+forecast), kept as a demonstration.
 
-1. **Pause** your session (top-left corner). Your files and changes are kept.
-2. From the dropdown on the launcher button, choose **Modify session resources**.
-3. Select a larger resource class and confirm.
-4. **Resume** the session.
+## Run
 
-To change the resources for all future sessions, edit the **Default Resource Class** in your launcher (click the pencil icon). To change them for a single new session, use the dropdown next to **Launch** and choose **Custom launch**.
+```bash
+export BIOREACTOR_DATA=<path>/bioreaction_remaining.csv
+export BIOREACTOR_TEMPLATE=<path>/bioreaction_template.csv
 
-See the [Renku documentation](https://docs.renkulab.io/en/latest/docs/users/compute/guides/select-compute-resources-for-session/) for details.
+python src/forecast_model.py --cv        # held-out MAPE on the team folds
+python src/forecast_model.py             # submissions/forecast_model.csv
+python src/build_final.py                # checks the submitted file against the probe files
+python src/ode_sensitivity.py            # sensitivity and identifiability tables
+python src/check_submission.py submissions/v10.1.0.csv
+python -m pytest tests/
+```
 
-&nbsp;
-
-## 2. Pause or shut down your session
-
-Sessions keep running when you close your browser. Please free up resources when you finish:
-
-* **Pause session** (top-left corner): your workspace is kept for two weeks. Sessions also pause automatically after 30 minutes of inactivity.
-
-![Pause button](https://raw.githubusercontent.com/SwissDataScienceCenter/renku-outreach/refs/heads/main/tutorial/pause_button.jpeg)
-
-&nbsp;
-
-* **Shut down session** (top-left corner): only work you have **committed and pushed** to the repository is kept. Everything else is lost.
-
-![Shut down button](https://raw.githubusercontent.com/SwissDataScienceCenter/renku-outreach/refs/heads/main/tutorial/shutdown_button.jpeg)
-
-> **Important:** Even paused sessions can end unexpectedly. **Commit and push regularly.**
-
-&nbsp;
-
-## Need help?
-Ask the SDSC coordinators or the Renku team on site, or write to `hello@renku.io` with the subject *[SDSC STEM4Health] Your topic*.
+The data are not versioned.
