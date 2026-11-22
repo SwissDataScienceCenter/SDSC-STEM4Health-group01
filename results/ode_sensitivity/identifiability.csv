@@ -1,0 +1,12 @@
+,se_one_batch_pct,se_all_batches_pct,most_correlated_with,correlation
+r_N,1.08,0.15,c_B,0.43
+k_dx,4.39,0.51,c_sub,-0.75
+k_l,63.24,8.41,k_dx,-0.57
+m_S,6.34,0.58,c_B,0.97
+q_o,14.23,2.02,k_g,0.96
+k_g,16.17,2.29,q_o,0.96
+Y_bo,18.99,2.64,y_bg,-0.89
+y_bg,30.61,4.22,k_bc,1.0
+k_bc,26.79,3.65,y_bg,1.0
+c_sub,8.53,1.0,k_dx,-0.75
+c_B,6.7,0.69,m_S,0.97

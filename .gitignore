@@ -3,3 +3,7 @@ data/
 
 # ignore .DS_Store files
 .DS_Store
+
+# Python bytecode and generated figures
+__pycache__/
+figures/

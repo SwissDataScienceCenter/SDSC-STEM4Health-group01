@@ -29,6 +29,7 @@ dependencies:
   - scikit-learn
   - xgboost
   - lightgbm
+  - pygam
   - statsmodels
   - imbalanced-learn       
   - shap                   
